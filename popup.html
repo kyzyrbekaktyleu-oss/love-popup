@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爱心弹窗</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background: white; min-height: 100vh; overflow: hidden; position: relative; }
+        .start-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #ffafbd, #ffc3a0); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; transition: opacity 0.5s ease; }
+        .start-container.hidden { opacity: 0; pointer-events: none; }
+        h1 { color: #e91e63; margin-bottom: 20px; font-size: 2.5rem; text-align: center; }
+        .heart { color: #e91e63; font-size: 2rem; margin: 0 10px; animation: heartbeat 1.5s infinite; }
+        @keyframes heartbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }
+        .btn { background: linear-gradient(135deg, #e91e63, #ad1457); color: white; border: none; padding: 20px 40px; font-size: 24px; border-radius: 50px; cursor: pointer; margin: 30px 0; transition: all 0.3s; font-weight: bold; box-shadow: 0 10px 25px rgba(233, 30, 99, 0.4); }
+        .btn:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(233, 30, 99, 0.5); }
+        .instructions { color: #666; margin-top: 20px; font-size: 16px; line-height: 1.5; text-align: center; max-width: 80%; }
+        /* 弹窗样式 */
+        .popup { position: fixed; background: linear-gradient(135deg, #ff9a9e, #fad0c4); border: 3px solid #ff69b4; border-radius: 15px; padding: 20px 25px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); z-index: 1000; animation: float 3s ease-in-out infinite, appear 0.5s ease-out; min-width: 200px; text-align: center; cursor: pointer; user-select: none; }
+        .popup-content { font-size: 20px; font-weight: bold; color: #d5006d; font-family: '楷体', 'STKaiti', serif; text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5); }
+        @keyframes float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(3deg); } }
+        @keyframes appear { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        .popup:nth-child(2n) { background: linear-gradient(135deg, #a1c4fd, #c2e9fb); border-color: #4fc3f7; }
+        .popup:nth-child(2n) .popup-content { color: #0277bd; }
+        .popup:nth-child(3n) { background: linear-gradient(135deg, #84fab0, #8fd3f4); border-color: #4db6ac; }
+        .popup:nth-child(3n) .popup-content { color: #00695c; }
+        .message { margin-top: 15px; padding: 10px; background: rgba(233, 30, 99, 0.1); border-radius: 10px; color: #e91e63; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="start-container" id="start-container">
+        <h1><span class="heart">❤</span> 爱心弹窗 <span class="heart">❤</span></h1>
+        <button class="btn" id="start-btn">💕 开始发送爱心 💕</button>
+        <div class="instructions">
+            <p>点击开始后，屏幕上会出现多个爱心弹窗</p>
+            <p>连续快速点击屏幕两次可以停止所有弹窗</p>
+        </div>
+    </div>
+
+    <script>
+        // 获取URL参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const data = urlParams.get('data');
+        
+        if (!data) {
+            // 没有数据，显示错误
+            document.getElementById('start-container').innerHTML = `
+                <h1>无效链接</h1>
+                <p>此链接无效或已过期。</p>
+                <p>请检查链接是否正确，或联系管理员获取新链接。</p>
+            `;
+        } else {
+            try {
+                // 解析订单数据
+                const orderData = JSON.parse(atob(data));
+                
+                // 设置开始按钮事件
+                document.getElementById('start-btn').addEventListener('click', function() {
+                    const startBtn = document.getElementById('start-btn');
+                    startBtn.disabled = true;
+                    startBtn.textContent = '💖 爱心发送中 💖';
+                    
+                    // 隐藏开始容器
+                    setTimeout(() => {
+                        document.getElementById('start-container').classList.add('hidden');
+                    }, 500);
+                    
+                    // 显示使用说明
+                    const message = document.createElement('div');
+                    message.className = 'message';
+                    message.textContent = '连续快速点击屏幕两次可以停止弹窗';
+                    document.querySelector('.instructions').appendChild(message);
+                    
+                    // 开始弹窗
+                    startPopups(orderData.sender, orderData.receiver, orderData.messages);
+                });
+            } catch (e) {
+                // 数据解析错误
+                document.getElementById('start-container').innerHTML = `
+                    <h1>无效链接</h1>
+                    <p>此链接无效或已过期。</p>
+                    <p>请检查链接是否正确，或联系管理员获取新链接。</p>
+                `;
+            }
+        }
+        
+        let popupInterval;
+        let isRunning = false;
+        let popupCount = 0;
+        const maxPopups = 50; // 最大弹窗数量
+        let lastTap = 0;
+        
+        function startPopups(sender, receiver, messages) {
+            isRunning = true;
+            
+            popupInterval = setInterval(() => {
+                if (popupCount >= maxPopups) {
+                    clearInterval(popupInterval);
+                    isRunning = false;
+                    return;
+                }
+                
+                createPopup(sender, receiver, messages);
+                popupCount++;
+                
+            }, 300); // 每300毫秒创建一个弹窗
+        }
+        
+        function createPopup(sender, receiver, messages) {
+            const popup = document.createElement('div');
+            popup.className = 'popup';
+            
+            // 随机位置
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const left = Math.random() * (screenWidth - 200);
+            const top = Math.random() * (screenHeight - 100);
+            
+            popup.style.left = left + 'px';
+            popup.style.top = top + 'px';
+            
+            // 随机选择一条消息
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            
+            popup.innerHTML = `
+                <div class="popup-content">
+                    ${randomMessage}
+                </div>
+            `;
+            
+            document.body.appendChild(popup);
+            
+            // 10秒后自动消失
+            setTimeout(() => {
+                if (popup.parentNode) {
+                    popup.style.animation = 'fadeOut 0.5s forwards';
+                    setTimeout(() => popup.remove(), 500);
+                }
+            }, 10000);
+        }
+        
+        // 双击停止功能
+        document.addEventListener('click', function(e) {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            
+            if (tapLength < 500 && tapLength > 0) {
+                // 双击检测成功
+                stopPopups();
+            }
+            
+            lastTap = currentTime;
+        });
+        
+        function stopPopups() {
+            if (!isRunning) return;
+            
+            clearInterval(popupInterval);
+            isRunning = false;
+            
+            // 移除所有弹窗
+            const popups = document.querySelectorAll('.popup');
+            popups.forEach(popup => {
+                popup.style.animation = 'fadeOut 0.5s forwards';
+                setTimeout(() => popup.remove(), 500);
+            });
+            
+            // 显示停止消息
+            const message = document.createElement('div');
+            message.className = 'message';
+            message.textContent = '弹窗已停止！';
+            document.querySelector('.instructions').appendChild(message);
+        }
+        
+        // 添加淡出动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeOut {
+                from { opacity: 1; transform: scale(1); }
+                to { opacity: 0; transform: scale(0.5); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

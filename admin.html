@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爱心弹窗生成器 - 管理员系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); width: 100%; max-width: 600px; margin-bottom: 20px; }
+        h1 { color: #333; margin-bottom: 20px; text-align: center; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #555; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: all 0.3s; }
+        input:focus, textarea:focus, select:focus { border-color: #667eea; outline: none; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2); }
+        textarea { height: 100px; resize: vertical; }
+        .btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 8px; cursor: pointer; margin: 10px 0; transition: all 0.3s; font-weight: bold; width: 100%; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+        .btn-success { background: linear-gradient(135deg, #28a745, #20c997); }
+        .link-container { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px dashed #ccc; }
+        .link { word-break: break-all; font-size: 14px; color: #667eea; margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px; border: 1px solid #ddd; }
+        .copy-btn { background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; margin-top: 10px; }
+        .orders-list { margin-top: 30px; }
+        .order-item { padding: 15px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa; }
+        .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .order-id { font-weight: bold; color: #333; }
+        .order-status { padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+        .status-used { background: #dc3545; color: white; }
+        .status-unused { background: #28a745; color: white; }
+        .order-details { font-size: 14px; color: #666; }
+        .admin-info { background: rgba(102, 126, 234, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; color: #667eea; }
+        .preview-btn { background: #ffc107; color: #212529; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💌 爱心弹窗生成器 - 管理员系统</h1>
+        <div class="admin-info">
+            <p>欢迎，管理员！生成链接后直接发送给用户即可使用</p>
+        </div>
+        <div class="form-group">
+            <label for="sender">发送者：</label>
+            <input type="text" id="sender" placeholder="输入发送者名字" value="亲爱的">
+        </div>
+        <div class="form-group">
+            <label for="receiver">接收者：</label>
+            <input type="text" id="receiver" placeholder="输入接收者名字">
+        </div>
+        <div class="form-group">
+            <label for="message-style">弹窗样式：</label>
+            <select id="message-style">
+                <option value="romantic">浪漫表白</option>
+                <option value="miss">思念想念</option>
+                <option value="apology">道歉认错</option>
+                <option value="custom">自定义消息</option>
+            </select>
+        </div>
+        <div class="form-group" id="custom-messages-group" style="display: none;">
+            <label for="custom-messages">自定义消息（每行一条）：</label>
+            <textarea id="custom-messages" placeholder="输入弹窗消息，每行一条">我想你了！
+我好喜欢你！
+你是我最重要的人！
+每天都想见到你！
+💕 爱你 💕</textarea>
+        </div>
+        <button class="btn" id="generate-btn">✨ 生成弹窗链接 ✨</button>
+        <div class="link-container" id="link-container" style="display: none;">
+            <p><strong>生成的链接：</strong></p>
+            <p class="link" id="generated-link"></p>
+            <button class="copy-btn" id="copy-btn">📋 复制链接</button>
+            <button class="preview-btn" id="preview-btn">👀 预览效果</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>已生成的订单</h2>
+        <div class="orders-list" id="orders-list">
+            <!-- 订单列表将通过JavaScript动态生成 -->
+        </div>
+    </div>
+
+    <!-- 弹窗预览容器 -->
+    <div id="preview-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 1000;">
+        <button id="close-preview" style="position: absolute; top: 20px; right: 20px; background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">关闭预览</button>
+    </div>
+
+    <script>
+        // 消息模板
+        const messageTemplates = {
+            romantic: ["我爱你！💕", "你是我生命中最重要的人！", "我的心只属于你！", "和你在一起的每一天都很幸福！", "我想和你一起慢慢变老！❤️"],
+            miss: ["我想你了！", "好想立刻见到你！", "没有你在身边，时间过得好慢", "每天都在思念你", "好想抱抱你呀！🤗"],
+            apology: ["对不起，我错了！", "请原谅我好吗？", "我知道我让你伤心了", "我会改的，相信我", "再给我一次机会吧！🙏"]
+        };
+
+        // 显示/隐藏自定义消息输入框
+        document.getElementById('message-style').addEventListener('change', function() {
+            const customGroup = document.getElementById('custom-messages-group');
+            customGroup.style.display = this.value === 'custom' ? 'block' : 'none';
+        });
+
+        // 生成链接
+        document.getElementById('generate-btn').addEventListener('click', function() {
+            const sender = document.getElementById('sender').value.trim();
+            const receiver = document.getElementById('receiver').value.trim();
+            const messageStyle = document.getElementById('message-style').value;
+            
+            if (!sender || !receiver) {
+                alert('请填写发送者和接收者名字！');
+                return;
+            }
+            
+            // 获取消息内容
+            let messages;
+            if (messageStyle === 'custom') {
+                messages = document.getElementById('custom-messages').value.split('\n').filter(msg => msg.trim());
+                if (messages.length === 0) {
+                    alert('请填写自定义消息！');
+                    return;
+                }
+            } else {
+                messages = messageTemplates[messageStyle];
+            }
+            
+            // 生成唯一ID
+            const orderId = generateOrderId();
+            
+            // 保存订单数据
+            const orderData = {
+                id: orderId,
+                sender: sender,
+                receiver: receiver,
+                messages: messages,
+                used: false,
+                createdAt: new Date().toLocaleString()
+            };
+            
+            saveOrder(orderData);
+            
+            // 生成链接
+            const link = generatePopupLink(orderData);
+            
+            // 显示链接
+            document.getElementById('generated-link').textContent = link;
+            document.getElementById('link-container').style.display = 'block';
+            
+            // 更新订单列表
+            updateOrdersList();
+        });
+
+        // 复制链接
+        document.getElementById('copy-btn').addEventListener('click', function() {
+            const link = document.getElementById('generated-link').textContent;
+            copyToClipboard(link);
+            alert('链接已复制到剪贴板！');
+        });
+
+        // 预览效果
+        document.getElementById('preview-btn').addEventListener('click', function() {
+            const sender = document.getElementById('sender').value.trim();
+            const receiver = document.getElementById('receiver').value.trim();
+            const messageStyle = document.getElementById('message-style').value;
+            
+            let messages;
+            if (messageStyle === 'custom') {
+                messages = document.getElementById('custom-messages').value.split('\n').filter(msg => msg.trim());
+            } else {
+                messages = messageTemplates[messageStyle];
+            }
+            
+            showPreview(sender, receiver, messages);
+        });
+
+        // 关闭预览
+        document.getElementById('close-preview').addEventListener('click', function() {
+            document.getElementById('preview-container').style.display = 'none';
+        });
+
+        // 生成订单ID
+        function generateOrderId() {
+            return 'order_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // 保存订单
+        function saveOrder(orderData) {
+            let orders = JSON.parse(localStorage.getItem('lovePopupOrders') || '[]');
+            orders.push(orderData);
+            localStorage.setItem('lovePopupOrders', JSON.stringify(orders));
+        }
+
+        // 生成弹窗链接
+        function generatePopupLink(orderData) {
+            // 创建一个包含订单数据的URL
+            const data = btoa(JSON.stringify(orderData));
+            // 使用相对路径，确保在GitHub Pages上正常工作
+            return window.location.href.replace('admin.html', 'popup.html') + '?data=' + encodeURIComponent(data);
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text);
+            } else {
+                // 备用方法
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // 更新订单列表
+        function updateOrdersList() {
+            const ordersList = document.getElementById('orders-list');
+            let orders = JSON.parse(localStorage.getItem('lovePopupOrders') || '[]');
+            
+            // 按创建时间倒序排列
+            orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
+            if (orders.length === 0) {
+                ordersList.innerHTML = '<p>暂无订单</p>';
+                return;
+            }
+            
+            let html = '';
+            orders.forEach(order => {
+                const status = order.used ? 
+                    '<span class="order-status status-used">已使用</span>' : 
+                    '<span class="order-status status-unused">未使用</span>';
+                
+                html += `
+                    <div class="order-item">
+                        <div class="order-header">
+                            <span class="order-id">订单: ${order.id.substr(0, 10)}...</span>
+                            ${status}
+                        </div>
+                        <div class="order-details">
+                            <p><strong>发送者:</strong> ${order.sender} → <strong>接收者:</strong> ${order.receiver}</p>
+                            <p><strong>消息:</strong> ${order.messages.slice(0, 3).join(', ')}${order.messages.length > 3 ? '...' : ''}</p>
+                            <p><strong>创建时间:</strong> ${order.createdAt}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            ordersList.innerHTML = html;
+        }
+
+        // 显示预览
+        function showPreview(sender, receiver, messages) {
+            const previewContainer = document.getElementById('preview-container');
+            previewContainer.style.display = 'block';
+            
+            // 清空预览容器
+            previewContainer.innerHTML = '<button id="close-preview" style="position: absolute; top: 20px; right: 20px; background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">关闭预览</button>';
+            
+            // 重新绑定关闭事件
+            document.getElementById('close-preview').addEventListener('click', function() {
+                previewContainer.style.display = 'none';
+            });
+            
+            // 创建预览弹窗
+            createPreviewPopups(sender, receiver, messages);
+        }
+
+        // 创建预览弹窗
+        function createPreviewPopups(sender, receiver, messages) {
+            const previewContainer = document.getElementById('preview-container');
+            let popupCount = 0;
+            const maxPopups = 15;
+            
+            const interval = setInterval(() => {
+                if (popupCount >= maxPopups) {
+                    clearInterval(interval);
+                    return;
+                }
+                
+                createPreviewPopup(sender, receiver, messages, previewContainer);
+                popupCount++;
+                
+            }, 500);
+        }
+
+        // 创建单个预览弹窗
+        function createPreviewPopup(sender, receiver, messages, container) {
+            const popup = document.createElement('div');
+            popup.style.position = 'absolute';
+            popup.style.background = 'linear-gradient(135deg, #ff9a9e, #fad0c4)';
+            popup.style.border = '3px solid #ff69b4';
+            popup.style.borderRadius = '15px';
+            popup.style.padding = '15px 20px';
+            popup.style.boxShadow = '0 5px 25px rgba(0, 0, 0, 0.3)';
+            popup.style.zIndex = '1000';
+            popup.style.animation = 'float 3s ease-in-out infinite, appear 0.5s ease-out';
+            popup.style.minWidth = '180px';
+            popup.style.textAlign = 'center';
+            popup.style.cursor = 'pointer';
+            popup.style.userSelect = 'none';
+            
+            // 随机位置
+            const left = Math.random() * (window.innerWidth - 200);
+            const top = Math.random() * (window.innerHeight - 100);
+            
+            popup.style.left = left + 'px';
+            popup.style.top = top + 'px';
+            
+            // 随机消息
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            
+            popup.innerHTML = `
+                <div style="font-size: 18px; font-weight: bold; color: #d5006d; font-family: 楷体, STKaiti, serif;">
+                    ${randomMessage}
+                </div>
+            `;
+            
+            container.appendChild(popup);
+            
+            // 点击关闭
+            popup.addEventListener('click', function() {
+                this.style.animation = 'fadeOut 0.5s forwards';
+                setTimeout(() => this.remove(), 500);
+            });
+            
+            // 10秒后自动消失
+            setTimeout(() => {
+                if (popup.parentNode) {
+                    popup.style.animation = 'fadeOut 0.5s forwards';
+                    setTimeout(() => popup.remove(), 500);
+                }
+            }, 10000);
+        }
+
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes float {
+                0%, 100% { transform: translateY(0) rotate(0deg); }
+                50% { transform: translateY(-15px) rotate(2deg); }
+            }
+            
+            @keyframes appear {
+                from { opacity: 0; transform: scale(0.8); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            
+            @keyframes fadeOut {
+                from { opacity: 1; transform: scale(1); }
+                to { opacity: 0; transform: scale(0.5); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 初始化时更新订单列表
+        updateOrdersList();
+    </script>
+</body>
+</html>
